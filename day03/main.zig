@@ -46,6 +46,7 @@ const MulExtractor = struct {
     }
 
     fn consumeDoOrDont(self: *MulExtractor) void {
+        if (self.input[self.idx] != 'd') return;
         const maybe_dont = self.input[self.idx .. self.idx + 7];
         const maybe_do = self.input[self.idx .. self.idx + 4];
         if (std.mem.eql(u8, maybe_dont, "don't()")) {
@@ -66,14 +67,10 @@ const MulExtractor = struct {
             const is_num = c >= '0' and c <= '9';
 
             switch (self.state) {
-                .M => {
-                    if (c == 'm') {
-                        self.state = State.U;
-                    } else if (c == 'd' and self.input[self.idx + 1] == 'o') {
-                        self.consumeDoOrDont();
-                    } else {
-                        self.reset();
-                    }
+                .M => switch (c)  {
+                    'm' => self.state = State.U,
+                    'd' => self.consumeDoOrDont(),
+                    else => self.reset(),
                 },
                 .U => {
                     if (c == 'u') self.state = State.L else self.reset();
@@ -103,8 +100,8 @@ const MulExtractor = struct {
                     if (c == ')') {
                         if (!self.is_disabled or !self.can_be_disabled)
                             try muls.append(Mul{ .lft = self.lft, .rgt = self.rgt });
-                        self.reset();
-                    } else self.reset();
+                    }
+                    self.reset();
                 },
             }
         }

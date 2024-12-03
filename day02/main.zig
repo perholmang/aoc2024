@@ -18,7 +18,7 @@ fn isValid(levels: []i32) bool {
     return true;
 }
 
-fn isValidWithMargin(levels: []i32, alloc: std.mem.Allocator) !bool {
+fn isValidWithTolerance(levels: []i32, alloc: std.mem.Allocator) !bool {
     for (0..levels.len) |idx| {
         if (isValid(try std.mem.concat(alloc, i32, &[_][]const i32{ levels[0..idx], levels[idx + 1 ..] }))) return true;
     }
@@ -44,7 +44,7 @@ pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const alloc = gpa.allocator();
 
-    var lines = std.mem.split(u8, data, "\n");
+    var lines = std.mem.splitSequence(u8, data, "\n");
     var num_safe: usize = 0;
     const part = try aoc.getPart(alloc);
 
@@ -57,7 +57,7 @@ pub fn main() !void {
                 if (isValid(levels)) num_safe += 1;
             },
             aoc.Part.part2 => {
-                if (try isValidWithMargin(levels, alloc)) num_safe += 1;
+                if (try isValidWithTolerance(levels, alloc)) num_safe += 1;
             },
         }
     }
