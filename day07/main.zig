@@ -3,31 +3,27 @@ const aoc = @import("helpers.zig");
 const data = @embedFile("input.txt");
 const Allocator = std.mem.Allocator;
 
-fn valid_equation(alloc: Allocator, numbers: []u64, sum: u64) !bool {
-    if (numbers.len == 2) {
-        return numbers[0] + numbers[1] == sum or numbers[0] * numbers[1] == sum;
+fn count_digits(n: u64) u64 {
+    var count: u64 = 0;
+    var num = n;
+    while (num != 0) {
+        num /= 10;
+        count += 1;
     }
+    return count;
+}
+fn plus(a: u64, b: u64) u64 {
+    return a + b;
+}
 
-    for (numbers, 0..) |_, i| {
-        if (i + 1 >= numbers.len) {
-            break;
-        }
+fn mul(a: u64, b: u64) u64 {
+    return a * b;
+}
 
-        const na = [1]u64{numbers[i] + numbers[i + 1]};
-        const new_arr_a = try std.mem.concat(alloc, u64, &[_][]const u64{ &na, numbers[i + 2 ..] });
-        if (try valid_equation(alloc, new_arr_a, sum)) {
-            return true;
-        }
-
-        const nb = [1]u64{numbers[i] * numbers[i + 1]};
-        const new_arr_b = try std.mem.concat(alloc, u64, &[_][]const u64{ &nb, numbers[i + 2 ..] });
-
-        if (try valid_equation(alloc, new_arr_b, sum)) {
-            return true;
-        }
-    }
-
-    return false;
+fn concat(_: Allocator, a: u64, b: u64) !u64 {
+    var buf: [100]u8 = undefined;
+    const w = try std.fmt.bufPrint(&buf, comptime "{d}{d}", .{ a, b });
+    return try std.fmt.parseInt(u64, w, 10);
 }
 
 pub fn main() !void {
@@ -35,8 +31,6 @@ pub fn main() !void {
     const alloc = gpa.allocator();
     const part = try aoc.getPart(alloc);
     _ = part;
-
-    //var numbers = [_]u32{ 81, 40, 27 };
 
     var lines_it = std.mem.splitSequence(u8, data, "\n");
     var total_sum: u64 = 0;
@@ -62,10 +56,63 @@ pub fn main() !void {
             try numbers.append(num_i);
         }
 
-        const is_valid = try valid_equation(alloc, numbers.items, sum);
+        const is_valid = try valid_backwards(numbers.items, sum);
         if (is_valid) total_sum += sum;
     }
 
     //const valid = try valid_equation(alloc, &numbers, 3267);
     std.debug.print("{d}\n", .{total_sum});
+}
+
+fn valid_backwards(numbers: []u64, target: u64) !bool {
+    if (numbers.len == 1) {
+        return numbers[0] == target;
+    }
+
+    const last = numbers[numbers.len - 1];
+    const digits_in_target = count_digits(last);
+    const last_digits = target % std.math.pow(u64, 10, digits_in_target);
+    const remain = target / std.math.pow(u64, 10, digits_in_target);
+
+    if (last_digits == last) {
+        if (try valid_backwards(numbers[0 .. numbers.len - 1], remain)) {
+            return true;
+        }
+    }
+
+    const r = @subWithOverflow(target, last);
+    if (r[1] == 1) {
+        return false;
+    }
+
+    if (target - last > 0) {
+        if (try valid_backwards(numbers[0 .. numbers.len - 1], target - last)) {
+            return true;
+        }
+    }
+
+    if (target % last == 0) {
+        if (try valid_backwards(
+            numbers[0 .. numbers.len - 1],
+            target / last,
+        )) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+test "valid_equation" {
+    //var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    //const alloc = gpa.allocator();
+
+    //var numbers = [_]u64{ 1, 2, 3, 4, 5, 6 };
+    //try std.testing.expect(try valid_backwards(&numbers, 90) == true);
+
+    var numbers2 = [_]u64{ 22, 22 };
+    try std.testing.expect(try valid_backwards(&numbers2, 2222) == true);
+
+    //var numbers2 = [_]u64{ 22, 22 };
+    //try std.testing.expect(try valid_backwards(&numbers2, 2222) == true);
 }
