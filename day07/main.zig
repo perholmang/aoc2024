@@ -30,7 +30,6 @@ pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const alloc = gpa.allocator();
     const part = try aoc.getPart(alloc);
-    _ = part;
 
     var lines_it = std.mem.splitSequence(u8, data, "\n");
     var total_sum: u64 = 0;
@@ -56,7 +55,7 @@ pub fn main() !void {
             try numbers.append(num_i);
         }
 
-        const is_valid = try valid_backwards(numbers.items, sum);
+        const is_valid = try valid_backwards(numbers.items, sum, part == aoc.Part.part2);
         if (is_valid) total_sum += sum;
     }
 
@@ -64,19 +63,21 @@ pub fn main() !void {
     std.debug.print("{d}\n", .{total_sum});
 }
 
-fn valid_backwards(numbers: []u64, target: u64) !bool {
+fn valid_backwards(numbers: []u64, target: u64, concat_enabled: bool) !bool {
     if (numbers.len == 1) {
         return numbers[0] == target;
     }
-
     const last = numbers[numbers.len - 1];
-    const digits_in_target = count_digits(last);
-    const last_digits = target % std.math.pow(u64, 10, digits_in_target);
-    const remain = target / std.math.pow(u64, 10, digits_in_target);
 
-    if (last_digits == last) {
-        if (try valid_backwards(numbers[0 .. numbers.len - 1], remain)) {
-            return true;
+    if (concat_enabled) {
+        const digits_in_target = count_digits(last);
+        const last_digits = target % std.math.pow(u64, 10, digits_in_target);
+        const remain = target / std.math.pow(u64, 10, digits_in_target);
+
+        if (last_digits == last) {
+            if (try valid_backwards(numbers[0 .. numbers.len - 1], remain, concat_enabled)) {
+                return true;
+            }
         }
     }
 
@@ -86,16 +87,13 @@ fn valid_backwards(numbers: []u64, target: u64) !bool {
     }
 
     if (target - last > 0) {
-        if (try valid_backwards(numbers[0 .. numbers.len - 1], target - last)) {
+        if (try valid_backwards(numbers[0 .. numbers.len - 1], target - last, concat_enabled)) {
             return true;
         }
     }
 
     if (target % last == 0) {
-        if (try valid_backwards(
-            numbers[0 .. numbers.len - 1],
-            target / last,
-        )) {
+        if (try valid_backwards(numbers[0 .. numbers.len - 1], target / last, concat_enabled)) {
             return true;
         }
     }
