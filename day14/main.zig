@@ -107,8 +107,7 @@ fn get_safety_factor(robots: []Robot, rows: usize, cols: usize) usize {
         }
     }
 
-    const safety_factor = q1 * q2 * q3 * q4;
-    return safety_factor;
+    return q1 * q2 * q3 * q4;
 }
 
 pub fn main() !void {
@@ -118,14 +117,17 @@ pub fn main() !void {
 
     var input_parser = InputParser{ .input = data };
     const robots = try input_parser.parse(alloc);
+    defer alloc.free(robots);
 
     if (part == aoc.Part.part1) {
-        const safety_factor = get_safety_factor(robots.items, 103, 101);
+        const safety_factor = get_safety_factor(robots, 103, 101);
         std.debug.print("{d}\n", .{safety_factor});
     } else {
         for (0..8000) |i| {
             var position_hashmap = std.AutoHashMap(Pos, bool).init(alloc);
-            for (robots.items) |robot| {
+            defer position_hashmap.deinit();
+
+            for (robots) |robot| {
                 const new_pos = robot_position_after(robot.position, robot.velocity, 103, 101, i);
                 try position_hashmap.put(new_pos, true);
             }
@@ -165,7 +167,7 @@ const InputParser = struct {
         return num;
     }
 
-    pub fn parse(self: *InputParser, alloc: Allocator) !std.ArrayList(Robot) {
+    pub fn parse(self: *InputParser, alloc: Allocator) ![]Robot {
         var px: i32 = 0;
         var py: i32 = 0;
         var vx: i32 = 0;
@@ -213,6 +215,15 @@ const InputParser = struct {
             }
         }
 
-        return rows;
+        return rows.toOwnedSlice();
     }
 };
+
+test "get_safety_factor" {
+    var input_parser = InputParser{ .input = TEST_INPUT };
+    const robots = try input_parser.parse(std.testing.allocator);
+    defer std.testing.allocator.free(robots);
+
+    const safety_factor = get_safety_factor(robots, 7, 11);
+    try std.testing.expect(safety_factor == 12);
+}
