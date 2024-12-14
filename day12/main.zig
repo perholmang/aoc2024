@@ -119,6 +119,7 @@ fn get_regions(alloc: Allocator, grid: []const u8, row_size: usize) ![]PlotRegio
         try visited.put(pos, void{});
 
         const plot_neighbours = try get_plot_neighbours(alloc, pos, grid, row_size);
+        defer alloc.free(plot_neighbours);
         for (plot_neighbours) |neighbour| {
             if (!visited.contains(neighbour)) {
                 try stack.append(PlotItem{ .pos = neighbour, .came_from = plot_type });
@@ -130,6 +131,7 @@ fn get_regions(alloc: Allocator, grid: []const u8, row_size: usize) ![]PlotRegio
             try regions.append(PlotRegion{ .type = current_plot.?, .area = current_area, .perimeter = current_perimeter, .sides = try get_number_of_sides(pos_in_region.items) });
             current_area = 0;
             current_perimeter = 0;
+            pos_in_region.deinit();
             pos_in_region = std.ArrayList(Pos).init(alloc);
         }
 
@@ -166,6 +168,9 @@ pub fn main() !void {
         total_price += region.area * if (part == aoc.Part.part2) region.sides else region.perimeter;
     }
 
+    defer alloc.free(regions);
+    defer alloc.free(grid);
+
     std.debug.print("{d}\n", .{total_price});
 }
 
@@ -174,4 +179,13 @@ fn array_contains(comptime T: type, haystack: []const T, needle: T) bool {
         if (std.meta.eql(element, needle))
             return true;
     return false;
+}
+
+test "get_regions" {
+    const alloc = std.testing.allocator;
+    const grid = try aoc.removeNewlines(alloc, data);
+    const regions = try get_regions(alloc, grid, 140);
+
+    defer alloc.free(regions);
+    defer alloc.free(grid);
 }
