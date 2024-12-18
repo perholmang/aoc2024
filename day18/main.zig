@@ -45,7 +45,7 @@ const DijkstraResult = struct {
     points_visited: std.AutoHashMap(Vec2, void),
 };
 
-fn dijkstra(alloc: Allocator, map: *[71][71]u8, start: Vec2, goal: Vec2) !?DijkstraResult {
+fn dijkstra(alloc: Allocator, map: []const []const u8, start: Vec2, goal: Vec2) !?DijkstraResult {
     var visited = std.AutoHashMap(PosAndDir, void).init(alloc);
     var cost_map = std.AutoHashMap(Vec2, CheapestCost).init(alloc);
     for (map, 0..) |row, y| {
@@ -146,6 +146,17 @@ fn find_visited_nodes(
     return ret;
 }
 
+fn create_map(alloc: Allocator, rows: usize, cols: usize) ![][]u8 {
+    var ret = try alloc.alloc([]u8, rows);
+    for (0..rows) |y| {
+        ret[y] = try alloc.alloc(u8, cols);
+        for (0..cols) |x| {
+            ret[y][x] = '.';
+        }
+    }
+    return ret;
+}
+
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const alloc = gpa.allocator();
@@ -154,12 +165,12 @@ pub fn main() !void {
     const rows = 71;
     const cols = 71;
 
-    var output: [rows][cols]u8 = .{.{'.'} ** rows} ** cols;
+    const output = try create_map(alloc, rows, cols);
 
-    try parse(&output, 1024);
+    try parse(output, 1024);
 
     if (part == aoc.Part.part1) {
-        const result = try dijkstra(alloc, &output, Vec2{ 0, 0 }, Vec2{ 70, 70 });
+        const result = try dijkstra(alloc, output, Vec2{ 0, 0 }, Vec2{ 70, 70 });
         std.debug.print("{d}\n", .{result.?.cheapest_cost});
     } else {
         var i: usize = 1024;
@@ -167,9 +178,9 @@ pub fn main() !void {
         var first_fail_idx: usize = 0;
         while (true) {
             defer i += step_size;
-            if (try try_step(alloc, &output, i)) {} else {
+            if (try try_step(alloc, output, i)) {} else {
                 for (1..step_size) |j| {
-                    if (!try try_step(alloc, &output, i - step_size + j)) {
+                    if (!try try_step(alloc, output, i - step_size + j)) {
                         first_fail_idx = i - step_size + j;
                         break;
                     }
@@ -183,7 +194,7 @@ pub fn main() !void {
     }
 }
 
-fn try_step(alloc: Allocator, output: *[71][71]u8, step: usize) !bool {
+fn try_step(alloc: Allocator, output: [][]u8, step: usize) !bool {
     for (output, 0..) |row, y| {
         for (row, 0..) |_, x| {
             output[y][x] = '.';
@@ -209,26 +220,7 @@ fn find_input_line(i: usize) ?[]const u8 {
     return null;
 }
 
-fn print_map(map: [71][71]u8, points_visited: ?std.AutoHashMap(Vec2, u8)) void {
-    for (map, 0..) |row, y| {
-        for (row, 0..) |cell, x| {
-            const vec2 = Vec2{ @as(i31, @intCast(x)), @as(i31, @intCast(y)) };
-
-            if (points_visited) |pv| {
-                if (pv.contains(vec2)) {
-                    std.debug.print("O", .{});
-                } else {
-                    std.debug.print("{c}", .{cell});
-                }
-            } else {
-                std.debug.print("{c}", .{cell});
-            }
-        }
-        std.debug.print("\n", .{});
-    }
-}
-
-fn parse(output: *[71][71]u8, max_steps: usize) !void {
+fn parse(output: [][]u8, max_steps: usize) !void {
     var lines_it = std.mem.splitSequence(u8, data, "\n");
     var steps: usize = 1;
     while (lines_it.next()) |line| {
