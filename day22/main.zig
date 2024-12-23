@@ -1,6 +1,6 @@
 const std = @import("std");
 const aoc = @import("helpers.zig");
-const data = @embedFile("input_test.txt");
+const data = @embedFile("input.txt");
 const Allocator = std.mem.Allocator;
 
 fn prune(n: usize) usize {
@@ -10,8 +10,8 @@ fn prune(n: usize) usize {
 fn mix(secret: usize, n: usize) usize {
     return secret ^ n;
 }
-fn last_digit(n: u64) u64 {
-    return n % (std.math.pow(u64, 10, 1));
+fn last_digit(n: u64) u8 {
+    return @as(u8, @intCast(n % (std.math.pow(u64, 10, 1))));
 }
 
 fn next_secret(number: usize) usize {
@@ -52,49 +52,72 @@ fn highest_price(prices: []usize) usize {
     return highest;
 }
 
+const Key = @Vector(4, i8);
+
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const alloc = gpa.allocator();
     const part = try aoc.getPart(alloc);
-    _ = part;
 
     var lines_it = std.mem.splitSequence(u8, data, "\n");
-    var sum: usize = 0;
+
+    var hashmaps = std.ArrayList(std.AutoHashMap(Key, u8)).init(alloc);
+    defer hashmaps.deinit();
+
+    var prices_per_seq = std.AutoHashMap(Key, usize).init(alloc);
+    var total_sum: usize = 0;
+
     while (lines_it.next()) |line| {
-        const initial = try std.fmt.parseInt(u32, line, 10);
-        const secret = nth_secret(initial, 2000);
-        const result = secret;
-        std.debug.print("last digit: {d}: {d}\n", .{ result, last_digit(result) });
-        sum += result;
+        var secret = try std.fmt.parseInt(usize, line, 10);
+        var d = [4]i8{ 0, 0, 0, 0 };
+        var prev_price: u8 = 0;
+
+        var seq = std.AutoHashMap(Key, void).init(alloc);
+
+        if (part == aoc.Part.part1) {
+            total_sum += nth_secret(secret, 2000);
+        } else {
+            for (0..2001) |i| {
+                const price = last_digit(secret);
+
+                d[0] = d[1];
+                d[1] = d[2];
+                d[2] = d[3];
+                d[3] = @as(i8, @intCast(price)) - @as(i8, @intCast(prev_price));
+
+                if (i > 3) {
+                    if (!seq.contains(d)) {
+                        try seq.put(d, void{});
+                        const existing = try prices_per_seq.getOrPut(d);
+                        if (existing.found_existing) {
+                            try prices_per_seq.put(d, existing.value_ptr.* + price);
+                        } else {
+                            try prices_per_seq.put(d, price);
+                        }
+                    }
+                }
+
+                secret = next_secret(secret);
+                prev_price = price;
+            }
+        }
     }
-    std.debug.print("{d}\n", .{sum});
+
+    if (part == aoc.Part.part1) {
+        std.debug.print("{d}\n", .{total_sum});
+    } else {
+        var best_price: usize = 0;
+        var best_price_key: Key = undefined;
+        var it = prices_per_seq.iterator();
+        while (it.next()) |entry| {
+            const value = entry.value_ptr.*;
+
+            if (value > best_price) {
+                best_price = value;
+                best_price_key = entry.key_ptr.*;
+            }
+        }
+
+        std.debug.print("{d}\n", .{best_price});
+    }
 }
-
-// fn parse(alloc: Allocator, input: []const u8) !ParsedData {
-//     var reading_patterns: bool = true;
-//     var patterns = std.ArrayList([]const u8).init(alloc);
-//     var towels = std.ArrayList([]const u8).init(alloc);
-
-//     var lines_it = std.mem.splitSequence(u8, input, "\n");
-
-//     while (lines_it.next()) |line| {
-//         if (line.len < 2) {
-//             reading_patterns = false;
-//             continue;
-//         }
-//         if (reading_patterns) {
-//             var pattern_it = std.mem.splitSequence(u8, line, ", ");
-//             while (pattern_it.next()) |pattern| {
-//                 try patterns.append(pattern);
-//             }
-//         } else {
-//             try towels.append(line);
-//         }
-//     }
-
-//     const patterns_arr = try patterns.toOwnedSlice();
-
-//     std.mem.sort([]const u8, patterns_arr, {}, longer);
-
-//     return ParsedData{ .patterns = patterns_arr, .towels = try towels.toOwnedSlice() };
-// }
